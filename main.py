@@ -37,7 +37,7 @@ def main(config):
         'bbl': dataset.bbl
     })
 
-    splits = [DisjointDataSplit(dataset, splits=default_split) for default_split in dataset.default_splits]
+    splits = [DisjointDataSplit(dataset, splits=default_split) for default_split in dataset.standard_splits]
 
     if config['model'] == 'MAE':
         params_space = {
