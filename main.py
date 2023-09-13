@@ -19,13 +19,9 @@ def main(config):
         config['dataset_path'],
         pred_mode=config['pred_mode'],
         low_level_only=config['low_level_only'],
-        padding=config['padding'],
-        images=config['images'],
         patch_size=config['patch_size'],
         in_h5py=config['h5py'],
         data_on_gpu=config['data_on_gpu'],
-        unlabeled=config['unlabeled'],
-        urban_atlas=config['urban_atlas']
     )
 
     print(f'Dataset has {len(dataset)} samples.')
