@@ -1,10 +1,8 @@
-import torch
-from tqdm import tqdm
-from tensorboardX import SummaryWriter
-import numpy as np
-import json
 import os
-import collections
+import json
+from tqdm import tqdm
+import torch
+from learning.knn import knn_pred
 
 
 class Tester(object):
@@ -16,17 +14,34 @@ class Tester(object):
         self.config = config
         self.model.eval()
 
-    def val_step(self, batch):
+    def test_step(self, batch):
         raise NotImplementedError
 
-    def compute_metrics(self):
-        raise NotImplementedError
-
-    def __call__(self, test_data_loader, dataset, labels):
+    def __call__(self, train_data_loader, test_data_loader):
         self.model.to(self.device)
-        for batch in tqdm(test_data_loader,
-                          total=len(test_data_loader),
-                          desc='Testing model...'):
-            self.val_step(batch)
 
-        self.compute_metrics()
+        train_proj, train_labels = [], []
+        for batch in tqdm(train_data_loader,
+                          total=len(train_data_loader)):
+
+            z, y = self.test_step(batch)
+            train_proj.append(z)
+            train_labels.append(y)
+
+        train_proj = torch.cat(train_proj).numpy()
+        train_labels = torch.cat(train_labels).numpy()
+
+        test_proj, test_labels = [], []
+        for batch in tqdm(test_data_loader,
+                          total=len(test_data_loader)):
+            z, y = self.test_step(batch)
+            test_proj.append(z)
+            test_labels.append(y)
+
+        test_proj = torch.cat(test_proj).numpy()
+        test_labels = torch.cat(test_labels).numpy()
+
+        acc_metrics = knn_pred(train_proj, train_labels, test_proj, test_labels)
+
+        with open(os.path.join(self.config['log_dir'], 'test_metrics.json'), 'w') as f:
+            json.dump(acc_metrics, f, indent=4)

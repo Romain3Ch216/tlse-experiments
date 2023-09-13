@@ -88,12 +88,11 @@ def main(config):
         trainer(labeled_loader, unlabeled_loader, val_loader)
 
         # Test the model on the test set
-        """
         best_params = torch.load(os.path.join(base_log_dir, f'split_{split_id+1}', 'best_model.pth.tar'), map_location=config['device'])
         trainer.model.load_state_dict(best_params['state_dict'])
         tester = load_tester(dataset, trainer.model, config)
         tester(test_loader)
-        """
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
