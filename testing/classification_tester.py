@@ -14,7 +14,7 @@ class AETester(Tester):
         self.model.eval()
 
         x, y = batch
-        x = x.to(self.device)
+        x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         with torch.no_grad():
             z, r = self.model(x)
@@ -32,10 +32,10 @@ class MAETester(Tester):
         self.model.eval()
 
         x, y = batch
-        x = x.to(self.device)
+        x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         with torch.no_grad():
-            loss, pred, mask, z = self.model(x, mask_ratio=self.mask_ratio)
+            loss, pred, mask, z = self.model(x, mask_ratio=0)
 
         if self.model.is_cls_token:
             z = z[:, 0, :]

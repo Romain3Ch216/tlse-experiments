@@ -18,7 +18,6 @@ def main(config):
     dataset = TlseHypDataSet(
         config['dataset_path'],
         pred_mode=config['pred_mode'],
-        low_level_only=config['low_level_only'],
         patch_size=config['patch_size'],
         in_h5py=config['h5py'],
         data_on_gpu=config['data_on_gpu'],
@@ -37,7 +36,7 @@ def main(config):
         'bbl': dataset.bbl
     })
 
-    splits = [DisjointDataSplit(dataset, splits=default_split) for default_split in dataset.standard_splits]
+    splits = [DisjointDataSplit(dataset, split=default_split) for default_split in dataset.standard_splits]
 
     if config['model'] == 'MAE':
         params_space = {
@@ -83,6 +82,15 @@ def main(config):
         cv_results = cross_validation(config, params_space, dataset, labeled_loader, unlabeled_loader, val_loader)
 
         config = update_config(config, cv_results)
+        """
+        config['lr'] = 1e-4
+        config['weight_decay'] = 1e-10
+        config['embed_dim'] = 32
+        config['decoder_embed_dim'] = 16
+        config['n_heads'] = 4
+        config['mask_ratio'] = 0.90
+        config['save_best_model'] = True
+        """
         model = load_model(config)
         trainer = load_trainer(dataset, model, config)
         trainer(labeled_loader, unlabeled_loader, val_loader)
@@ -91,7 +99,7 @@ def main(config):
         best_params = torch.load(os.path.join(base_log_dir, f'split_{split_id+1}', 'best_model.pth.tar'), map_location=config['device'])
         trainer.model.load_state_dict(best_params['state_dict'])
         tester = load_tester(dataset, trainer.model, config)
-        tester(test_loader)
+        tester(labeled_loader, test_loader)
 
 
 if __name__ == '__main__':

@@ -25,7 +25,7 @@ class AutoEncodingTrainer(Trainer):
         self.optimizer.zero_grad()
 
         x, y = batch
-        x = x.to(self.device)
+        x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         z, r = self.model(x)
         loss = F.mse_loss(x, r)
@@ -37,7 +37,7 @@ class AutoEncodingTrainer(Trainer):
         self.model.eval()
 
         x, y = batch
-        x = x.to(self.device)
+        x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         with torch.no_grad():
             z, r = self.model(x)
@@ -69,7 +69,7 @@ class MAETrainer(Trainer):
         self.optimizer.zero_grad()
 
         x, y = batch
-        x = x.to(self.device)
+        x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         loss, pred, mask, z = self.model(x, mask_ratio=self.mask_ratio)
 
@@ -86,7 +86,7 @@ class MAETrainer(Trainer):
         self.model.eval()
 
         x, y = batch
-        x = x.to(self.device)
+        x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         with torch.no_grad():
             loss, pred, mask, z = self.model(x, mask_ratio=self.mask_ratio)

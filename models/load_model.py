@@ -3,7 +3,7 @@ from models.autoencoder import AutoEncoder
 
 
 def load_model(config):
-    if config['model'] == 'mae':
+    if config['model'] == 'MAE':
         model = MaskedAutoencoder(
             n_bands=config['n_bands'],
             seq_size=config['seq_size'],

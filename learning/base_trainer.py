@@ -103,7 +103,7 @@ class Trainer(object):
                                   total=len(unlabeled_train_data_loader),
                                   desc=f'Training epoch {epoch}'):
 
-                    loss = self.train_step(batch)
+                    z, y, loss = self.train_step(batch)
                     self.logger.add_scalar('Loss', loss, iteration)
                     iteration += 1
 

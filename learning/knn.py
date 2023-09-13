@@ -5,6 +5,10 @@ from sklearn.metrics import accuracy_score, f1_score
 
 def knn_pred(X_train, Y_train, X_test, Y_test):
     clf = KNeighborsClassifier(n_neighbors=3)
+    Y_train = Y_train.reshape(-1)
+    Y_test = Y_test.reshape(-1)
+    assert X_train.shape[0] == Y_train.shape[0]
+    assert X_test.shape[0] == Y_test.shape[0]
     clf.fit(X_train, Y_train)
     pred = clf.predict(X_test)
 
