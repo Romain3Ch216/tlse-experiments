@@ -1,5 +1,5 @@
 from models.transformer import MaskedAutoencoder
-from models.autoencoder import AutoEncoder, AutoEncoderWithLinear
+from models.autoencoder import AutoEncoder
 import torch
 
 
