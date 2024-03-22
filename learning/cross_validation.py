@@ -54,7 +54,7 @@ class CrossValidationObjective:
         model = load_model(config)
         trainer = load_trainer(self.dataset, model, config)
         trainer(self.labeled_loader, self.unlabeled_loader, self.val_loader)
-        return trainer.best_metric
+        return trainer.best_metric * trainer.direction
 
 
 class CrossValidation:

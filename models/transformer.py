@@ -303,8 +303,8 @@ def get_1d_sincos_pos_embed(embed_dim, grid_size, cls_token=True):
     out: (M, D)
     """
     assert embed_dim % 2 == 0
-    grid = np.arange(grid_size, dtype=np.float32)
-    omega = np.arange(embed_dim // 2, dtype=np.float)
+    grid = np.arange(grid_size, dtype=float)
+    omega = np.arange(embed_dim // 2, dtype=float)
     omega /= embed_dim / 2.
     omega = 1. / 10000**omega  # (D/2,)
 
@@ -325,7 +325,7 @@ class MaskedAutoencoder(nn.Module):
     def __init__(self, n_bands=310, seq_size=5, in_chans=1,
                  embed_dim=32, depth=4, num_heads=4,
                  decoder_embed_dim=32, decoder_depth=4, decoder_num_heads=4,
-                 mlp_ratio=4., norm_layer=nn.LayerNorm, cls_token=True):
+                 mlp_ratio=4., norm_layer=nn.LayerNorm, cls_token=True, reduce_cls=False, z_dim=32):
         super().__init__()
 
         # --------------------------------------------------------------------------
@@ -338,6 +338,10 @@ class MaskedAutoencoder(nn.Module):
             self.is_cls_token = True
         else:
             self.is_cls_token = False
+
+        self.reduce_cls = reduce_cls
+        if reduce_cls:
+            self.reduce_cls_linear = nn.Linear(embed_dim, z_dim)
 
         self.pos_embed = nn.Parameter(torch.zeros(1, num_sequences + np.sum(self.is_cls_token), embed_dim), requires_grad=False)  # fixed sin-cos embedding
 
@@ -352,7 +356,10 @@ class MaskedAutoencoder(nn.Module):
         print(f'Encoder has {n_params} parameters.')
         # --------------------------------------------------------------------------
         # MAE decoder specifics
-        self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
+        if reduce_cls:
+            self.decoder_embed = nn.Linear(z_dim, decoder_embed_dim, bias=True)
+        else:
+            self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
 
         self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
 
@@ -473,6 +480,10 @@ class MaskedAutoencoder(nn.Module):
             x = blk(x)
         x = self.norm(x)
 
+        # Add optional linear to reduce the CLS token dimension
+        if self.reduce_cls:
+            x = self.reduce_cls_linear(x)
+
         return x, mask, ids_restore
 
     def forward_decoder(self, x, ids_restore):
@@ -529,7 +540,12 @@ class MaskedAutoencoder(nn.Module):
         return latent
 
     def forward(self, spectra, mask_ratio=0.75):
-        latent, mask, ids_restore = self.forward_encoder(spectra, mask_ratio)
-        pred = self.forward_decoder(latent, ids_restore)
+        x, mask, ids_restore = self.forward_encoder(spectra, mask_ratio)
+        pred = self.forward_decoder(x, ids_restore)
         loss = self.forward_loss(spectra, pred, mask)
+
+        if self.is_cls_token:
+            latent = x[:, 0, :]
+        else:
+            latent = torch.mean(x[:, 1:, :], dim=1)
         return loss, pred, mask, latent

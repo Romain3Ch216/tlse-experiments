@@ -1,9 +1,14 @@
 from models.transformer import MaskedAutoencoder
-from models.autoencoder import AutoEncoder
+from models.autoencoder import AutoEncoder, AutoEncoderWithLinear
+import torch
 
 
 def load_model(config):
     if config['model'] == 'MAE':
+        if config['seed'] is not None:
+            torch.manual_seed(config['seed'])
+            torch.cuda.manual_seed(config['seed'])
+
         model = MaskedAutoencoder(
             n_bands=config['n_bands'],
             seq_size=config['seq_size'],
@@ -16,7 +21,7 @@ def load_model(config):
             decoder_num_heads=config['decoder_n_heads'],
             mlp_ratio=config['mlp_ratio'],
             cls_token=config['cls_token']
-        )
+            )
     elif config['model'] == 'AE':
         model = AutoEncoder(
             n_channels=config['n_bands'],
@@ -24,4 +29,5 @@ def load_model(config):
             h_dim=config['h_dim'],
             decoder_h_dim=config['decoder_h_dim']
         )
+
     return model

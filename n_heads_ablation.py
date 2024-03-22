@@ -14,6 +14,7 @@ import numpy as np
 
 
 def main(config):
+    config['model'] = 'MAE'
     config = load_config(config)
 
     dataset = TlseHypDataSet(
@@ -21,10 +22,11 @@ def main(config):
         pred_mode=config['pred_mode'],
         patch_size=config['patch_size'],
         in_h5py=config['h5py'],
-        data_on_gpu=config['data_on_gpu']
+        data_on_gpu=config['data_on_gpu'],
     )
 
     print(f'Dataset has {len(dataset)} samples.')
+
     base_log_dir = os.path.join(config['root_path'], config['model'], datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
     config.update({
@@ -34,73 +36,55 @@ def main(config):
         'E_dif': dataset.E_dif,
         'theta': dataset.theta,
         'bbl': dataset.bbl,
-        'save_best_model': True
+        'lr': 1e-4,
+        'weight_decay': 1e-10,
+        'decoder_embed_dim': 16,
+        'seq_size': 5,
+        'depth': 4,
+        'decoder_depth': 3,
+        'decoder_n_heads': 4,
+        'mlp_ratio': 4,
+        'cls_token': True,
+        'save_best_model': True,
+        'reduce_cls': False,
+        'z_dim': None,
+        'mask_ratio': 0.7
     })
 
     splits = [DisjointDataSplit(dataset, split=default_split) for default_split in dataset.standard_splits]
+    n_runs = 5
 
-    if config['model'] == 'MAE':
-        params_space = {
-            'lr': ('float', [5e-5, 5e-4]),
-            'weight_decay': ('log', [1e-10, 1e-2]),
-        }
+    for run in range(n_runs):
+        seed = np.random.randint(1e6)
+        for n_heads in [16, 32, 64, 128, 256]:
+            for split_id, split in enumerate(splits):
+                config.update({
+                    'log_dir': os.path.join(base_log_dir, f'split_{split_id+1}_n_heads_{n_heads}_seed_{seed}'),
+                    'n_heads': n_heads,
+                    'embed_dim': n_heads,
+                    'seed': seed
+                })
 
-        config.update({
-            'seq_size': 5,
-            'embed_dim': 128,
-            'n_heads': 128,
-            'decoder_embed_dim': 16,
-            'mask_ratio': 0.8,
-            'depth': 4,
-            'decoder_depth': 3,
-            'decoder_n_heads': 4,
-            'mlp_ratio': 4,
-            'cls_token': True,
-            'reduce_cls': False,
-            'z_dim': None
-        })
+                labeled_loader = torch.utils.data.DataLoader(split.sets_['train'], shuffle=True, batch_size=config['batch_size'], pin_memory=True)
+                unlabeled_data = torch.utils.data.ConcatDataset([split.sets_['labeled_pool'], split.sets_['unlabeled_pool']])
+                unlabeled_loader = torch.utils.data.DataLoader(unlabeled_data, shuffle=True, batch_size=config['batch_size'], pin_memory=True)
+                val_loader = torch.utils.data.DataLoader(split.sets_['validation'], shuffle=False, batch_size=config['batch_size'], pin_memory=True)
+                test_loader = torch.utils.data.DataLoader(split.sets_['test'], shuffle=False, batch_size=config['batch_size'], pin_memory=True)
 
-    elif config['model'] == 'AE':
-        params_space = {
-            'lr': ('float', [5e-5, 5e-4]),
-            'weight_decay': ('log', [1e-10, 1e-2]),
-            'h_dim': ('int', [32, 64, 96]),
-            'z_dim': ('int', [16, 32, 48]),
-            'decoder_h_dim': ('int', [32, 64, 96]),
-        }
+                model = load_model(config)
+                trainer = load_trainer(dataset, model, config)
+                trainer(labeled_loader, unlabeled_loader, val_loader)
 
-    for split_id, split in enumerate(splits):
-
-        config.update({
-            'log_dir': os.path.join(base_log_dir, f'split_{split_id+1}'),
-        })
-
-        labeled_loader = torch.utils.data.DataLoader(split.sets_['train'], shuffle=True, batch_size=config['batch_size'], pin_memory=True)
-        val_loader = torch.utils.data.DataLoader(split.sets_['validation'], shuffle=False, batch_size=config['batch_size'], pin_memory=True)
-        test_loader = torch.utils.data.DataLoader(split.sets_['test'], shuffle=False, batch_size=config['batch_size'], pin_memory=True)
-        unlabeled_data = torch.utils.data.ConcatDataset([split.sets_['labeled_pool'], split.sets_['unlabeled_pool']])
-        unlabeled_loader = torch.utils.data.DataLoader(unlabeled_data, shuffle=True, batch_size=config['batch_size'], pin_memory=True)
-
-        cross_validation = CrossValidation()
-        cv_results = cross_validation(config, params_space, dataset, labeled_loader, unlabeled_loader, val_loader)
-
-        config = update_config(config, cv_results)
-        model = load_model(config)
-        trainer = load_trainer(dataset, model, config)
-
-        trainer(labeled_loader, unlabeled_loader, val_loader)
-
-        # Test the model on the test set
-        best_params = torch.load(os.path.join(base_log_dir, f'split_{split_id+1}', 'best_model.pth.tar'), map_location=config['device'])
-        trainer.model.load_state_dict(best_params['state_dict'])
-        tester = load_tester(dataset, trainer.model, config)
-        tester(labeled_loader, test_loader)
+                # Test the model on the test set
+                best_params = torch.load(os.path.join(config['log_dir'], 'best_model.pth.tar'), map_location=config['device'])
+                trainer.model.load_state_dict(best_params['state_dict'])
+                tester = load_tester(dataset, trainer.model, config)
+                tester(labeled_loader, test_loader)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str, help='Path to root')
-    parser.add_argument('--model', type=str, help="A model among {'1d_autoencoder, mlp'}")
     parser.add_argument('--device', type=str, default='cpu', help="Specify cpu or gpu")
 
     # Model options

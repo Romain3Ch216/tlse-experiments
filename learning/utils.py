@@ -1,4 +1,5 @@
 from learning.autoencoding_trainer import AutoEncodingTrainer, MAETrainer
+from learning.deep_cluster_trainer import DeepClusterTrainer
 import numpy as np
 
 

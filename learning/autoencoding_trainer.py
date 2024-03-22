@@ -4,7 +4,6 @@ import torchnet
 from learning.base_trainer import Trainer
 
 
-
 class AutoEncodingTrainer(Trainer):
     def __init__(self, dataset, model, config):
         super().__init__(dataset, model, config)
@@ -41,7 +40,7 @@ class AutoEncodingTrainer(Trainer):
 
         with torch.no_grad():
             z, r = self.model(x)
-        loss = self.criterion(x, r)
+        loss = F.mse_loss(x, r)
         self.meters['val']['reconstruction'].add(loss.item())
         return z.cpu(), y.cpu()
 
@@ -71,13 +70,7 @@ class MAETrainer(Trainer):
         x, y = batch
         x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
-        loss, pred, mask, z = self.model(x, mask_ratio=self.mask_ratio)
-
-        if self.model.is_cls_token:
-            z = z[:, 0, :]
-        else:
-            z = torch.mean(z[:, 1:, :], dim=1)
-
+        loss, _, _, z = self.model(x, mask_ratio=self.mask_ratio)
         loss.backward()
         self.optimizer.step()
         return z.detach().cpu(), y.cpu(), loss.item()
@@ -89,12 +82,7 @@ class MAETrainer(Trainer):
         x = x.to(self.device).view(x.shape[0], x.shape[-1])
 
         with torch.no_grad():
-            loss, pred, mask, z = self.model(x, mask_ratio=self.mask_ratio)
-
-        if self.model.is_cls_token:
-            z = z[:, 0, :]
-        else:
-            z = torch.mean(z[:, 1:, :], dim=1)
+            loss, _, _, z = self.model(x, mask_ratio=self.mask_ratio)
 
         self.meters['val']['reconstruction'].add(loss.item())
         return z.cpu(), y.cpu()

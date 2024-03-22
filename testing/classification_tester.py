@@ -37,9 +37,4 @@ class MAETester(Tester):
         with torch.no_grad():
             loss, pred, mask, z = self.model(x, mask_ratio=0)
 
-        if self.model.is_cls_token:
-            z = z[:, 0, :]
-        else:
-            z = torch.mean(z[:, 1:, :], dim=1)
-
         return z.cpu(), y.cpu()

@@ -38,3 +38,4 @@ class AutoEncoder(nn.Module):
         z = self.latent(x)
         x = self.decode(z)
         return z, x
+
